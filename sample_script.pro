@@ -23,10 +23,12 @@ sim->add_ellipse, xy_center=[907.,-265.], fwhm=[5.,5.], intensity=3, name='fp2'
 restore,'fh1_figure_image_aia_rhsi.dat'	,/v		; thermal loop data from Säm
 ; Truncate the data to eliminate wings.
 h04.data[ where( h04.data lt 0.18*max(h04.data) ) ] = 0.
-sim->add_map, h04, intensity=0.001
+sim->add_map, h04, intensity=0.001, name='loop'
 
 ; See what the map looks like so far...
 test = sim->get( /total )
+window, 0, xsi=500,ysi=500
+!p.multi=1
 plot_map, test, grid=5
 
 ; Check out the ellipse parameters, for reference
@@ -35,4 +37,13 @@ help, test, /str
 
 ; Look at the individual maps, if desired.
 test = sim->get( /maps )
+window, 1, xsize=600, ysize=600
+!p.multi=[0,2,2]
+for i=0, n_elements(test)-1 do plot_map, test[i], grid=5
 
+; Try removing a source.
+sim->remove_source, 'loop'
+test = sim->get( /total )
+window, 2, xsi=500,ysi=500
+!p.multi=1
+plot_map, test, grid=5

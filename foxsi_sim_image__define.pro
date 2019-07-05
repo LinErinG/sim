@@ -142,10 +142,22 @@ pro foxsi_sim_image::add_ellipse, intensity=intensity, xy_center=xy_center, $
 
 end
 
-;pro foxsi_sim_image::remove_source, name
-;
-;	return
-;end
+pro foxsi_sim_image::remove_source, name
+
+	; Remove from ellipse list if it's there.
+	index = where( (*(self.source)).name eq name )
+	if index[0] ne -1 then remove, index, *(self.source)
+	
+	; Remove from maps if it's there.
+	index = where( (*(self.maps)).id eq name )
+	if index[0] ne -1 then remove, index, *(self.maps)
+	
+	; Regenerate total map without this source.
+	(*(self.total_map)).data = 0.
+	for i=0, n_elements( *(self.maps) ) - 1 do (*(self.total_map)).data += (*(self.maps))[i].data
+	
+	return
+end
 
 
 pro foxsi_sim_image::define_map, dim=dim, _extra=_extra
@@ -164,7 +176,7 @@ pro foxsi_sim_image::define_map, dim=dim, _extra=_extra
 
 end
 
-pro foxsi_sim_image::add_map, map, intensity=intensity
+pro foxsi_sim_image::add_map, map, intensity=intensity, name=name
 ;;
 ;; If an overall map has not yet been defined, this will initialize it with the input map.
 ;; If an overall map is already defined, this will coregister it to that map and 
@@ -173,12 +185,27 @@ pro foxsi_sim_image::add_map, map, intensity=intensity
 ;;
 
 	default, intensity, 1.
+	default, name, 'source'
+	
+	temp = map
+	temp.id = name
+	temp.data *= intensity
 
 	; Check to see if the map is already defined.
 	if exist( *(self.total_map) ) then begin
-		coreg = coreg_map( map, *(self.total_map), drot=0., /resc, /no_proj )
-		(*(self.total_map)).data += coreg.data*intensity
-	endif else *(self.total_map) = map
+		temp = coreg_map( temp, *(self.total_map), drot=0., /resc, /no_proj )
+		(*(self.total_map)).data += temp.data
+	endif else *(self.total_map) = temp
+	
+	; Save the individual map too.  If map structure doesn't exist yet, create it.
+	if not isa( *(self.maps), 'STRUCT') then begin
+		*(self.maps) = temp
+	endif else begin
+		copy = (*(self.maps))[0]
+		copy.data = temp.data
+		copy.id = name
+		*(self.maps) = [*(self.maps), copy]
+	endelse
 
 	return
 	
