@@ -26,7 +26,7 @@ h04.data[ where( h04.data lt 0.18*max(h04.data) ) ] = 0.
 sim->add_map, h04, intensity=0.001, name='loop'
 
 ; See what the map looks like so far...
-test = sim->get( /total )
+test = sim->get( /total_map )
 window, 0, xsi=500,ysi=500
 !p.multi=1
 plot_map, test, grid=5
@@ -43,7 +43,48 @@ for i=0, n_elements(test)-1 do plot_map, test[i], grid=5
 
 ; Try removing a source.
 sim->remove_source, 'loop'
-test = sim->get( /total )
+test = sim->get( /total_map )
 window, 2, xsi=500,ysi=500
 !p.multi=1
 plot_map, test, grid=5
+
+; Put it back.
+sim->add_map, h04, intensity=0.001, name='loop'
+test = sim->get( /total_map )
+window, 2, xsi=500,ysi=500
+!p.multi=1
+plot_map, test, grid=5
+
+; Add spectra for some sources.  (Example does identical spectra for all sources, but 
+; the user can put in whatever they like.)
+; General practice: MAPS must be added first, then spectral information is added
+; to each by referring to name.  Name must be exact.
+
+; First, an energy range should be defined.
+; If this is not done, then the default energy range will be used.
+
+; Add a thermal spectrum to the loop.
+;sim->define_energy		; default energy bins
+sim->define_energy, bin=0.05, emin=2., emax=20.	; special binning
+energy = sim->get( /energy )
+flux = f_vth( energy.energy2, [2.,1.0,1.] )
+
+sim->add_spectrum, spec=flux, name='loop'
+sim->add_spectrum, spec=flux, name='fp1'
+
+; Get the individual source cubes to see what they look like.
+; Each element of the CUBES array has a name and a cube for one source.
+sources = sim->get( /cubes )
+help, sources, /str
+movie_map, sources[0].cube, /log
+
+; Get the total cube that has all of the sources together.
+; This is just a map array.
+total = sim->get( /total_cube )
+movie_map, total, /log
+
+; Add the same spectrum to the other two sources and retrieve the total cube again.
+sim->add_spectrum, spec=flux, name='fp2'
+sim->add_spectrum, spec=flux, name='coronal'
+total = sim->get( /total_cube )
+movie_map, total, /log

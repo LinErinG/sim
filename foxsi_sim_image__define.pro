@@ -6,16 +6,18 @@ function foxsi_sim_image::init
 	self.source = ptr_new(/allocate)  
 	self.energy = ptr_new(/allocate)  
 	self.maps = ptr_new(/allocate)
+	self.cubes = ptr_new(/allocate)
 	self.total_map = ptr_new(/allocate)
 		
 	return,1
 
 end
 
-function foxsi_sim_image::get, energy=energy, ellipse=ellipse, maps=maps, total_map=total_map
+function foxsi_sim_image::get, energy=energy, ellipse=ellipse, maps=maps, $
+	total_map=total_map, cubes=cubes, total_cube=total_cube
 ;;
 ;; This routine is the master GET function.
-;; It will eventually return all the data you might desire!
+;; It will return all the data you might desire!
 ;;
 ;; ENERGY returns the energy array (which is either the default or user-defined).
 ;; ELLIPSE returns a source structure with all the ellipse parameters.
@@ -25,7 +27,13 @@ function foxsi_sim_image::get, energy=energy, ellipse=ellipse, maps=maps, total_
 	if keyword_set( energy ) then return, *(self.energy)
 	if keyword_set( ellipse ) then return, *(self.source)
 	if keyword_set( maps ) then return, *(self.maps)
+	if keyword_set( cubes ) then return, *(self.cubes)
 	if keyword_set( total_map ) then return, *(self.total_map)
+	if keyword_set( total_cube ) then begin
+		total = (*(self.cubes))[0].cube
+		total.data = total((*(self.cubes)).cube.data, 4)
+		return, total
+	endif
 	return, -1		; if nothing has been returned yet, toss back an error
 
 end
@@ -72,12 +80,60 @@ pro foxsi_sim_image::define_energy, bin=bin, emin=emin, emax=emax, array=array
 
 	energy_mid = get_edges( energy1, /mean )
 
-	energy = {ENERGY, logbin:bin, min:emin, max:emax, n:nbin, energy1:energy1, $
+	energy = {logbin:bin, min:emin, max:emax, n:nbin, energy1:energy1, $
 				energy2:energy2, energy_mid:energy_mid}
 
 	*(self.energy) = energy
 
 	return
+
+end
+
+pro foxsi_sim_image::add_spectrum, spec=spec, name=name
+
+	; SPEC should be an array of X-ray fluxes corresponding to the energy array
+	; (energy array is either user-specified or default)
+
+	if not keyword_set( SPEC ) then begin
+		print, 'No spectrum input; returning.'
+		return
+	endif
+
+	if not keyword_set( NAME ) then begin
+		print, 'No source name specified; returning.'
+		return
+	endif
+
+	; If no energy array has been defined yet, then load the default.
+	if not exist(*(self.energy)) then self.define_energy
+	
+	; The spectrum needs to correspond to the energy array.
+	; Check that spec and energy array are the same size.
+	if n_elements( (*(self.energy)).energy_mid ) ne n_elements( SPEC ) then begin
+		print, 'Spectrum and energy array are not the same size. Returning.'
+		return
+	endif
+	
+	; Create map cube for this source.
+	; TO DO: HANDLE CASE WHERE >1 SOURCE FITS THE NAME
+	index = where( (*(self.maps)).id eq name )
+	if index[0] eq -1 then begin
+		print, 'Source name not found.'
+		return
+	endif
+	temp_cube = replicate( (*(self.maps))[index], n_elements((*(self.energy)).energy_mid) )
+	for i=0, n_elements(temp_cube)-1 do begin
+		temp_cube[i].data /= total(temp_cube[i].data)
+		temp_cube[i].data *= spec[i]
+		temp_cube[i].id += ' flux, energy '+strtrim((*(self.energy)).energy1[i],2)+'-'+ $
+							strtrim((*(self.energy)).energy1[i+1],2)+' keV
+	endfor
+
+	; Save the cube.  If cube structure doesn't exist yet, create it.
+	if not isa( *(self.cubes), 'STRUCT') then begin
+		*(self.cubes) = {name:name, cube:temp_cube}
+	endif else *(self.cubes) = [(*(self.cubes)), {name:name, cube:temp_cube}]
+	;stop
 
 end
 
@@ -212,13 +268,13 @@ pro foxsi_sim_image::add_map, map, intensity=intensity, name=name
 end
 
 ;;;;;;; NOT USED YET
-pro foxsi_sim_image::plot, map
-
-	; plot the input map
-	if isa( map,'STRUCT' ) then plot_map, map
-	return
-	
-end
+;pro foxsi_sim_image::plot, map
+;
+;	; plot the input map
+;	if isa( map,'STRUCT' ) then plot_map, map
+;	return
+;	
+;end
 
 function foxsi_sim_image::cleanup
 
@@ -234,6 +290,7 @@ pro foxsi_sim_image__define
 		source:ptr_new(), 	$
 		energy:ptr_new(), 	$
 		maps:ptr_new(),		$
+		cubes:ptr_new(),	$
 		total_map:ptr_new()	$
 		}
 
