@@ -5,7 +5,7 @@ What it does: Sets up X-ray sources and combines them into one map.  The main pe
               as you want; each new source is a line or two of code.  Sources can be Gaussian (specified by parameters) or can be 
               maps.  Everything is coregistered.
               
-What it doesn't do (yet): Spectral information and the folding through the FOXSI response. These are coming soon (along with documentation).
+What it doesn't do (yet): Folding through the FOXSI response. This is coming soon (along with documentation).
 
 foxsi_sim_image__define.pro defines the simulation object that contains all the machinery to set up the sources.
 
