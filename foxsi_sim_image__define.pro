@@ -32,6 +32,7 @@ function foxsi_sim_image::get, energy=energy, ellipse=ellipse, maps=maps, $
 	if keyword_set( total_cube ) then begin
 		total = (*(self.cubes))[0].cube
 		total.data = total((*(self.cubes)).cube.data, 4)
+		for i=0, n_elements(total)-1 do total[i].id = strmid(total[i].id,strpos(total[i].id,'energy'))
 		return, total
 	endif
 	return, -1		; if nothing has been returned yet, toss back an error
@@ -79,9 +80,10 @@ pro foxsi_sim_image::define_energy, bin=bin, emin=emin, emax=emax, array=array
 	endif
 
 	energy_mid = get_edges( energy1, /mean )
+	energy_wid = get_edges( energy1, /width )
 
 	energy = {logbin:bin, min:emin, max:emax, n:nbin, energy1:energy1, $
-				energy2:energy2, energy_mid:energy_mid}
+				energy2:energy2, energy_mid:energy_mid, energy_wid:energy_wid}
 
 	*(self.energy) = energy
 
@@ -89,13 +91,22 @@ pro foxsi_sim_image::define_energy, bin=bin, emin=emin, emax=emax, array=array
 
 end
 
-pro foxsi_sim_image::add_spectrum, spec=spec, name=name
+pro foxsi_sim_image::add_spectrum, spec=spec, name=name, vth=vth, bpow=bpow
 
 	; SPEC should be an array of X-ray fluxes corresponding to the energy array
 	; (energy array is either user-specified or default)
+	; Alternatively, an array of spectral parameters can be defined via VTH or BPOW,
+	; using the usual array of parameters for each.  (See f_vth.pro and f_bpow.pro.)
+	; Both VTH and BPOW can be used at the same time if desired; the fluxes are added.
 
-	if not keyword_set( SPEC ) then begin
-		print, 'No spectrum input; returning.'
+	if not keyword_set( SPEC ) and not keyword_set( VTH ) and not keyword_set( BPOW) then begin
+		print, 'Need to input either a spectrum (keyword SPEC) or an '
+		print, 'array of model parameters (keyword VTH or BPOW).'
+		return
+	endif
+	
+	if (keyword_set( VTH ) or keyword_set( BPOW )) and keyword_set( SPEC ) then begin
+		print, 'Input a model parameter array OR a spectrum, but not both.'
 		return
 	endif
 
@@ -103,10 +114,15 @@ pro foxsi_sim_image::add_spectrum, spec=spec, name=name
 		print, 'No source name specified; returning.'
 		return
 	endif
-
+	
 	; If no energy array has been defined yet, then load the default.
 	if not exist(*(self.energy)) then self.define_energy
 	
+	if not keyword_set( SPEC ) then spec = fltarr( n_elements((*(self.energy)).energy_mid) )
+
+	if keyword_set( VTH )  then spec += f_vth(  (*(self.energy)).energy2, VTH )
+	if keyword_set( BPOW ) then spec += f_bpow( (*(self.energy)).energy2, BPOW )
+
 	; The spectrum needs to correspond to the energy array.
 	; Check that spec and energy array are the same size.
 	if n_elements( (*(self.energy)).energy_mid ) ne n_elements( SPEC ) then begin
@@ -125,8 +141,8 @@ pro foxsi_sim_image::add_spectrum, spec=spec, name=name
 	for i=0, n_elements(temp_cube)-1 do begin
 		temp_cube[i].data /= total(temp_cube[i].data)
 		temp_cube[i].data *= spec[i]
-		temp_cube[i].id += ' flux, energy '+strtrim((*(self.energy)).energy1[i],2)+'-'+ $
-							strtrim((*(self.energy)).energy1[i+1],2)+' keV
+		temp_cube[i].id += ' flux, energy '+string((*(self.energy)).energy1[i],format='(f5.1)') $
+							+' -'+string((*(self.energy)).energy1[i+1],format='(f5.1)')+' keV
 	endfor
 
 	; Save the cube.  If cube structure doesn't exist yet, create it.
