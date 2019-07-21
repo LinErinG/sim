@@ -28,7 +28,13 @@ function foxsi_sim_image::get, energy=energy, ellipse=ellipse, maps=maps, $
 	if keyword_set( ellipse ) then return, *(self.source)
 	if keyword_set( maps ) then return, *(self.maps)
 	if keyword_set( cubes ) then return, *(self.cubes)
-	if keyword_set( total_map ) then return, *(self.total_map)
+;;;	if keyword_set( total_map ) then return, *(self.total_map)		; old way
+	if keyword_set( total_map ) then begin
+		total = (*(self.maps))[0]
+		total.data = total((*(self.maps)).data, 3)
+		total.id = 'X-ray sources'
+		return, total
+	endif
 	if keyword_set( total_cube ) then begin
 		total = (*(self.cubes))[0].cube
 		total.data = total((*(self.cubes)).cube.data, 4)
@@ -202,7 +208,7 @@ pro foxsi_sim_image::add_ellipse, intensity=intensity, xy_center=xy_center, $
 	source_map.data[ where( source_map.data lt factor*max(source_map.data) ) ] = 0.
 
 	coreg = coreg_map( source_map, *(self.total_map), drot=0., /resc, /no_proj )
-	(*(self.total_map)).data += coreg.data
+	;;;(*(self.total_map)).data += coreg.data
 	
 	; Save the individual map too.  If map structure doesn't exist yet, create it.
 	if not isa( *(self.maps), 'STRUCT') then begin
@@ -283,13 +289,26 @@ pro foxsi_sim_image::add_map, map, intensity=intensity, name=name
 	
 end
 
-;;;;;;; NOT USED YET
-;pro foxsi_sim_image::plot, map
+;function foxsi_sim_image::foxsi_sim_cube, dir=dir
+
+	;;;; NOT YET FUNCTIONAL.  need to find a way to run the setup script.
+	;;;; Or maybe just have the user run it first.
+
+	; This runs the total cube through the FOXSI response.
+	; FOXSI simulation software must be on the user's computer.
+	; DIR is required and specifies the path to the FOXSI-SMEX IDL directory.
+	; e.g. ~/foxsi/smex/code/foxsi-smex/idl
+	
+;	if not keyword_set( DIR ) then begin
+;		print, 'FOXSI-SMEX IDL directory must be specified in keyword DIR.'
+;		return, -1
+;	endif
+	
+;	curdir=curdir()
+;	cd, dir
+;	.run foxsi-smex-setup-script
+;	cd, curdir
 ;
-;	; plot the input map
-;	if isa( map,'STRUCT' ) then plot_map, map
-;	return
-;	
 ;end
 
 function foxsi_sim_image::cleanup
