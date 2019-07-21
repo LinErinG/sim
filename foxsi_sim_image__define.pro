@@ -206,6 +206,8 @@ pro foxsi_sim_image::add_ellipse, intensity=intensity, xy_center=xy_center, $
 	; a "full-width-tenth-max."
 	factor = 0.1
 	source_map.data[ where( source_map.data lt factor*max(source_map.data) ) ] = 0.
+	source_map = rot_map( source_map, rotation )
+	source_map.roll_angle = 0.
 
 	coreg = coreg_map( source_map, *(self.total_map), drot=0., /resc, /no_proj )
 	;;;(*(self.total_map)).data += coreg.data
