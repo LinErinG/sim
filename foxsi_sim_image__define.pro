@@ -31,7 +31,8 @@ function foxsi_sim_image::get, energy=energy, ellipse=ellipse, maps=maps, $
 ;;;	if keyword_set( total_map ) then return, *(self.total_map)		; old way
 	if keyword_set( total_map ) then begin
 		total = (*(self.maps))[0]
-		total.data = total((*(self.maps)).data, 3)
+		if size( (*(self.maps)).data, /n_dim ) gt 2 then $
+			total.data = total((*(self.maps)).data, 3)
 		total.id = 'X-ray sources'
 		return, total
 	endif
@@ -58,7 +59,7 @@ pro foxsi_sim_image::define_energy, bin=bin, emin=emin, emax=emax, array=array
 	default, emax, 100.
 
 	nbin = fix((alog(emax)-alog(emin))/bin)
-	energy1 = findgen(nbin)*bin + alog(emin)
+	energy1 = findgen(nbin+1)*bin + alog(emin)
 	energy1 = exp(energy1)
 	energy2 = get_edges( energy1, /edges_2)
 
@@ -206,7 +207,7 @@ pro foxsi_sim_image::add_ellipse, intensity=intensity, xy_center=xy_center, $
 	; a "full-width-tenth-max."
 	factor = 0.1
 	source_map.data[ where( source_map.data lt factor*max(source_map.data) ) ] = 0.
-	source_map = rot_map( source_map, rotation )
+	source_map = rot_map( source_map, rotation, rcen=xy_center )
 	source_map.roll_angle = 0.
 
 	coreg = coreg_map( source_map, *(self.total_map), drot=0., /resc, /no_proj )
@@ -223,18 +224,24 @@ pro foxsi_sim_image::add_ellipse, intensity=intensity, xy_center=xy_center, $
 end
 
 pro foxsi_sim_image::remove_source, name
+;;;;
+;;;; CURRENTLY NOT WORKING IF THERE IS ONLY ONE MAP/SOURCE.  MUST FIX.
+;;;;
 
 	; Remove from ellipse list if it's there.
+	if n_elements( *(self.source) ) eq 1 then *(self.source)=!null   ; THIS BREAKS
 	index = where( (*(self.source)).name eq name )
 	if index[0] ne -1 then remove, index, *(self.source)
 	
 	; Remove from maps if it's there.
+	if n_elements( *(self.maps) ) eq 1 then *(self.maps)=!null   ; THIS BREAKS
 	index = where( (*(self.maps)).id eq name )
 	if index[0] ne -1 then remove, index, *(self.maps)
 	
-	; Regenerate total map without this source.
-	(*(self.total_map)).data = 0.
-	for i=0, n_elements( *(self.maps) ) - 1 do (*(self.total_map)).data += (*(self.maps))[i].data
+;;; MAYBE THIS ISN'T NEEDED
+;	; Regenerate total map without this source.
+;	(*(self.total_map)).data = 0.
+;	for i=0, n_elements( *(self.maps) ) - 1 do (*(self.total_map)).data += (*(self.maps))[i].data
 	
 	return
 end
